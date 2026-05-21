@@ -1,25 +1,24 @@
+import apiClient, { getWebSocketUrl } from './apiClient';
+
 class NotificationService {
   async getNotifications(userId) {
-    return Promise.resolve([
-      {
-        id: 1,
-        userId,
-        title: 'Welcome to RoomBooker',
-        message: 'Your notification center is set up and ready.',
-        type: 'info',
-        is_read: false,
-        created_at: new Date().toISOString(),
-      },
-    ]);
+    const response = await apiClient.get(`/notifications/user/${userId}`);
+    return response.data;
   }
 
   async markAsRead(notificationId) {
-    return Promise.resolve({ success: true });
+    const response = await apiClient.post(`/notifications/mark-read/${notificationId}`);
+    return response.data;
   }
 
   connectWebSocket(userId, onMessage) {
+    const socket = new WebSocket(getWebSocketUrl(`/notifications/ws/${userId}`));
+    socket.onmessage = (event) => {
+      onMessage(JSON.parse(event.data));
+    };
+
     return {
-      close: () => {},
+      close: () => socket.close(),
     };
   }
 }

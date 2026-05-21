@@ -1,20 +1,18 @@
-import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL;
+import apiClient from './apiClient';
 
 class ReviewService {
   async createReview(reviewData) {
-    const response = await axios.post(`${API_URL}/reviews`, reviewData);
+    const response = await apiClient.post('/reviews', reviewData);
     return response.data;
   }
 
   async getRoomReviews(roomId) {
-    const response = await axios.get(`${API_URL}/reviews/room/${roomId}`);
+    const response = await apiClient.get(`/reviews/room/${roomId}`);
     return response.data;
   }
 
   async getUserReviews(userId) {
-    const response = await axios.get(`${API_URL}/reviews/user/${userId}`);
+    const response = await apiClient.get(`/reviews/user/${userId}`);
     return response.data;
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import adminService from '../../services/adminService';
 import toast from 'react-hot-toast';
@@ -16,18 +16,22 @@ const RoomManagement = () => {
     images: []
   });
 
-  useEffect(() => {
-    loadRooms();
-  }, []);
-
-  const loadRooms = async () => {
+  const loadRooms = useCallback(async () => {
     try {
       const data = await adminService.getAllRooms();
       setRooms(data);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load rooms');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadRooms();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadRooms]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,7 +46,7 @@ const RoomManagement = () => {
       loadRooms();
       setIsModalOpen(false);
       resetForm();
-    } catch (error) {
+    } catch {
       toast.error('Operation failed');
     }
   };

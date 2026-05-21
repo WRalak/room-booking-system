@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import DatePicker from 'react-datepicker';
-import { Calendar, Repeat, Clock } from 'lucide-react';
 import bookingService from '../services/bookingService';
 import toast from 'react-hot-toast';
 
@@ -36,7 +35,7 @@ const RecurringBooking = ({ room, user }) => {
       
       toast.success(`Recurring booking created for ${occurrences} ${frequency} sessions`);
       // Redirect or reset form
-    } catch (error) {
+    } catch {
       toast.error('Failed to create recurring booking');
     } finally {
       setLoading(false);

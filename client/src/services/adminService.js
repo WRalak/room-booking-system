@@ -1,47 +1,45 @@
-import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL;
+import apiClient from './apiClient';
 
 class AdminService {
   async getDashboardStats() {
-    const response = await axios.get(`${API_URL}/admin/dashboard`);
+    const response = await apiClient.get('/admin/dashboard');
     return response.data;
   }
 
   async getRevenueReport(startDate, endDate) {
-    const response = await axios.get(`${API_URL}/admin/revenue`, {
+    const response = await apiClient.get('/admin/revenue', {
       params: { start_date: startDate, end_date: endDate }
     });
     return response.data;
   }
 
   async getAllRooms() {
-    const response = await axios.get(`${API_URL}/admin/rooms`);
+    const response = await apiClient.get('/admin/rooms');
     return response.data;
   }
 
   async createRoom(roomData) {
-    const response = await axios.post(`${API_URL}/admin/rooms`, roomData);
+    const response = await apiClient.post('/admin/rooms', roomData);
     return response.data;
   }
 
   async updateRoom(roomId, roomData) {
-    const response = await axios.put(`${API_URL}/admin/rooms/${roomId}`, roomData);
+    const response = await apiClient.put(`/admin/rooms/${roomId}`, roomData);
     return response.data;
   }
 
   async deleteRoom(roomId) {
-    const response = await axios.delete(`${API_URL}/admin/rooms/${roomId}`);
+    const response = await apiClient.delete(`/admin/rooms/${roomId}`);
     return response.data;
   }
 
   async getAllBookings(filters) {
-    const response = await axios.get(`${API_URL}/admin/bookings`, { params: filters });
+    const response = await apiClient.get('/admin/bookings', { params: filters });
     return response.data;
   }
 
   async verifyReview(reviewId) {
-    const response = await axios.post(`${API_URL}/admin/reviews/${reviewId}/verify`);
+    const response = await apiClient.post(`/admin/reviews/${reviewId}/verify`);
     return response.data;
   }
 }

@@ -1,62 +1,68 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Bell, X, Check } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Bell, Check } from 'lucide-react';
+import { useAuth } from '../context/useAuth';
 import notificationService from '../services/notificationService';
 
-const NotificationCenter = ({ userId }) => {
+const NotificationCenter = () => {
+  const { user, isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const loadNotifications = useCallback(async () => {
+    if (!isAuthenticated || !user) return;
+
     try {
-      const data = await notificationService.getNotifications(userId);
+      const data = await notificationService.getNotifications(user.id);
       setNotifications(data);
-      setUnreadCount(data.filter(n => !n.is_read).length);
+      setUnreadCount(data.filter((n) => !n.is_read).length);
     } catch (error) {
       console.error('Error loading notifications:', error);
     }
-  }, [userId]);
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
-    loadNotifications();
-    
-    // Setup WebSocket connection for real-time notifications
-    const ws = notificationService.connectWebSocket(userId, (notification) => {
-      setNotifications(prev => [notification, ...prev]);
-      setUnreadCount(prev => prev + 1);
-      
-      // Show browser notification
+    if (!isAuthenticated || !user) return undefined;
+
+    const loadTimer = window.setTimeout(() => {
+      void loadNotifications();
+    }, 0);
+
+    const ws = notificationService.connectWebSocket(user.id, (notification) => {
+      setNotifications((prev) => [notification, ...prev]);
+      setUnreadCount((prev) => prev + 1);
+
       if (Notification.permission === 'granted') {
         new Notification(notification.title, {
           body: notification.message,
-          icon: '/favicon.ico'
+          icon: '/favicon.ico',
         });
       }
     });
-    
-    // Request notification permission
+
     if (Notification.permission === 'default') {
       Notification.requestPermission();
     }
-    
+
     return () => {
+      window.clearTimeout(loadTimer);
       if (ws) ws.close();
     };
-  }, [userId, loadNotifications]);
+  }, [isAuthenticated, user, loadNotifications]);
 
   const markAsRead = async (notificationId) => {
     await notificationService.markAsRead(notificationId);
-    setNotifications(prev =>
-      prev.map(n =>
+    setNotifications((prev) =>
+      prev.map((n) =>
         n.id === notificationId ? { ...n, is_read: true } : n
       )
     );
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    setUnreadCount((prev) => Math.max(0, prev - 1));
   };
 
   const markAllAsRead = async () => {
     await Promise.all(
-      notifications.filter(n => !n.is_read).map(n => markAsRead(n.id))
+      notifications.filter((n) => !n.is_read).map((n) => markAsRead(n.id))
     );
   };
 
@@ -75,9 +81,14 @@ const NotificationCenter = ({ userId }) => {
     }
   };
 
+  if (!isAuthenticated || !user) {
+    return null;
+  }
+
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-full hover:bg-gray-100"
       >
@@ -95,6 +106,7 @@ const NotificationCenter = ({ userId }) => {
             <h3 className="text-lg font-semibold">Notifications</h3>
             {unreadCount > 0 && (
               <button
+                type="button"
                 onClick={markAllAsRead}
                 className="text-sm text-blue-600 hover:text-blue-800"
               >
@@ -105,11 +117,9 @@ const NotificationCenter = ({ userId }) => {
 
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                No notifications yet
-              </div>
+              <div className="p-8 text-center text-gray-500">No notifications yet</div>
             ) : (
-              notifications.map(notification => (
+              notifications.map((notification) => (
                 <div
                   key={notification.id}
                   className={`p-4 border-b hover:bg-gray-50 cursor-pointer ${
@@ -120,23 +130,13 @@ const NotificationCenter = ({ userId }) => {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center mb-1">
-                        <span className="text-xl mr-2">
-                          {getNotificationIcon(notification.type)}
-                        </span>
-                        <span className="font-semibold">
-                          {notification.title}
-                        </span>
+                        <span className="text-xl mr-2">{getNotificationIcon(notification.type)}</span>
+                        <span className="font-semibold">{notification.title}</span>
                       </div>
-                      <p className="text-gray-600 text-sm">
-                        {notification.message}
-                      </p>
-                      <span className="text-xs text-gray-400 mt-1">
-                        {new Date(notification.created_at).toLocaleString()}
-                      </span>
+                      <p className="text-gray-600 text-sm">{notification.message}</p>
+                      <span className="text-xs text-gray-400 mt-1">{new Date(notification.created_at).toLocaleString()}</span>
                     </div>
-                    {!notification.is_read && (
-                      <Check className="w-4 h-4 text-blue-600" />
-                    )}
+                    {!notification.is_read && <Check className="w-4 h-4 text-blue-600" />}
                   </div>
                 </div>
               ))

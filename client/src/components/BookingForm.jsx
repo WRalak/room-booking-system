@@ -1,35 +1,52 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/useAuth';
+import bookingService from '../services/bookingService';
+import roomService from '../services/roomService';
+import Spinner from './Spinner';
+import gamificationService from '../services/gamificationService';
 
-const rooms = [
-  {
-    id: 1,
-    name: 'Executive Meeting Room',
-    description: 'A fully equipped meeting room for up to 12 people.',
-    pricePerHour: 2500,
-  },
-  {
-    id: 2,
-    name: 'Conference Hall',
-    description: 'Spacious hall with projector, sound system and seating for 30.',
-    pricePerHour: 4000,
-  },
-  {
-    id: 3,
-    name: 'Quiet Workspace',
-    description: 'Individual work pods with high-speed Wi-Fi and power outlets.',
-    pricePerHour: 1200,
-  },
-];
-
-const BookingForm = ({ room: selectedRoom, user }) => {
+const BookingForm = ({ room: selectedRoom }) => {
+  const { user } = useAuth();
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const [room] = useState(() => selectedRoom || rooms.find((item) => String(item.id) === roomId) || null);
+  const [room, setRoom] = useState(selectedRoom || null);
+  const [loading, setLoading] = useState(!selectedRoom);
   const [startTime, setStartTime] = useState('');
   const [durationHours, setDurationHours] = useState(1);
   const [notes, setNotes] = useState('');
+  const [errors, setErrors] = useState({});
+
+  const loadRoom = useCallback(async () => {
+    try {
+      const data = await roomService.getRoomDetails(roomId);
+      setRoom(data);
+    } catch {
+      toast.error('Room not found');
+    } finally {
+      setLoading(false);
+    }
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!selectedRoom) {
+      const timer = window.setTimeout(() => {
+        void loadRoom();
+      }, 0);
+
+      return () => window.clearTimeout(timer);
+    }
+  }, [loadRoom, selectedRoom]);
+
+  if (loading) {
+    return (
+      <div className="text-center py-10">
+        <Spinner size={48} />
+        <div className="mt-2 text-gray-600">Loading room...</div>
+      </div>
+    );
+  }
 
   if (!room) {
     return (
@@ -46,32 +63,42 @@ const BookingForm = ({ room: selectedRoom, user }) => {
     );
   }
 
-  const totalAmount = durationHours * room.pricePerHour;
+  const totalAmount = durationHours * room.price_per_hour;
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!startTime) {
-      toast.error('Please select a start time.');
-      return;
+    const nextErrors = {};
+    if (!startTime) nextErrors.startTime = 'Please select a start time.';
+    if (!durationHours || durationHours < 1) nextErrors.durationHours = 'Duration must be at least 1 hour.';
+
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    const startDate = new Date(startTime);
+    const endDate = new Date(startDate.getTime() + durationHours * 60 * 60 * 1000);
+
+    try {
+      const booking = await bookingService.createBooking({
+        user_id: user?.id,
+        room_id: room.id,
+        start_time: startDate.toISOString(),
+        end_time: endDate.toISOString(),
+        notes,
+      });
+
+      // Award gamification points: 1 point per 100 KES (minimum 1)
+      const points = Math.max(1, Math.floor(totalAmount / 100));
+      const uid = user?.id || localStorage.getItem('rb_user') || 'guest';
+      gamificationService.addPoints(String(uid), points);
+      gamificationService.grantBadge(String(uid), 'First Booking');
+
+      toast.success('Booking created! Redirecting to payment...');
+      // Navigate to payment page for this booking
+      navigate(`/pay/${booking.id}`);
+    } catch (error) {
+      toast.error(error?.response?.data?.error || 'Failed to create booking');
     }
-
-    const booking = {
-      id: Date.now(),
-      userId: user?.id,
-      roomId: room.id,
-      roomName: room.name,
-      startTime,
-      durationHours,
-      totalAmount,
-      notes,
-    };
-
-    const storedBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    localStorage.setItem('bookings', JSON.stringify([...storedBookings, booking]));
-
-    toast.success('Booking created successfully!');
-    navigate('/my-bookings');
   };
 
   return (
@@ -88,6 +115,7 @@ const BookingForm = ({ room: selectedRoom, user }) => {
             onChange={(event) => setStartTime(event.target.value)}
             className="w-full border rounded-lg px-3 py-2"
           />
+          {errors.startTime && <p className="text-red-600 text-sm mt-1">{errors.startTime}</p>}
         </div>
 
         <div>
@@ -100,6 +128,7 @@ const BookingForm = ({ room: selectedRoom, user }) => {
             onChange={(event) => setDurationHours(Number(event.target.value))}
             className="w-full border rounded-lg px-3 py-2"
           />
+          {errors.durationHours && <p className="text-red-600 text-sm mt-1">{errors.durationHours}</p>}
         </div>
 
         <div>
@@ -114,7 +143,7 @@ const BookingForm = ({ room: selectedRoom, user }) => {
         </div>
 
         <div className="rounded-lg bg-gray-50 p-4">
-          <p className="text-sm text-gray-600">Price per hour: KES {room.pricePerHour.toLocaleString()}</p>
+          <p className="text-sm text-gray-600">Price per hour: KES {room.price_per_hour?.toLocaleString()}</p>
           <p className="text-lg font-semibold mt-2">Total: KES {totalAmount.toLocaleString()}</p>
         </div>
 

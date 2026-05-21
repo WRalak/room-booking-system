@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Users, Calendar, DollarSign, Star, TrendingUp, Clock } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Users, Calendar, DollarSign, Star } from 'lucide-react';
 import adminService from '../../services/adminService';
 
 const AdminDashboard = () => {
@@ -8,11 +8,7 @@ const AdminDashboard = () => {
   const [revenueData, setRevenueData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       const statsData = await adminService.getDashboardStats();
       setStats(statsData);
@@ -24,7 +20,15 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadDashboardData();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadDashboardData]);
 
   if (loading) return <div className="text-center py-10">Loading dashboard...</div>;
 

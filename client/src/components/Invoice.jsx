@@ -1,19 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Download, FileText } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Download } from 'lucide-react';
 import invoiceService from '../services/invoiceService';
 import toast from 'react-hot-toast';
 
-const Invoice = ({ bookingId, userId }) => {
+const Invoice = ({ bookingId }) => {
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (bookingId) {
-      loadInvoice();
-    }
-  }, [bookingId]);
-
-  const loadInvoice = async () => {
+  const loadInvoice = useCallback(async () => {
     setLoading(true);
     try {
       const data = await invoiceService.getInvoice(bookingId);
@@ -23,7 +17,17 @@ const Invoice = ({ bookingId, userId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [bookingId]);
+
+  useEffect(() => {
+    if (bookingId) {
+      const timer = window.setTimeout(() => {
+        void loadInvoice();
+      }, 0);
+
+      return () => window.clearTimeout(timer);
+    }
+  }, [bookingId, loadInvoice]);
 
   const handleDownload = async () => {
     try {
@@ -37,7 +41,7 @@ const Invoice = ({ bookingId, userId }) => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       toast.success('Invoice downloaded');
-    } catch (error) {
+    } catch {
       toast.error('Failed to download invoice');
     }
   };
